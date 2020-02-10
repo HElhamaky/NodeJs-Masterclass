@@ -6,6 +6,7 @@
 //Dependencies
 var http = require ('http');
 var url = require('url');
+var StringDecoder = require('string_decoder').StringDecoder;
 
 //The server should respond to all requests with a string
 var server = http.createServer(function(req,res){
@@ -26,13 +27,55 @@ var server = http.createServer(function(req,res){
     //Get the headers as an Object
     var headers = req.headers;
 
-    //Send the response
-    res.end('Hello World\n');
-
-    //Log the request path 
-    console.log('Request is received on path: '+trimmedPath+'\nwith method '+method+ '\nand with these query parameters ',queryStringObject);
-    console.log('Request received with these headers ', headers);
+    //Get the payloads if any [collect streams]
+    //Data Event and End Event
+    var decoder = new StringDecoder('utf-8');
+    var buffer = '';
     
+    req.on('data', function(data){
+        buffer +=decoder.write(data);
+    });
+
+    req.on('end', function(){
+        buffer += decoder.end();
+
+        //Choose the handler this request should go. If one is not found, use the notFound handler
+        var chosenHandler  = typeof(router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handlers.notFound;
+
+        //Construct the data object to send to the router
+        var data = {
+            'trimmed path' : trimmedPath,
+            'queryStringObject' : queryStringObject,
+            'method' : method,
+            'headers' : headers,
+            'reqPayload' : buffer
+        };
+
+        //Route the request to the chosen handler
+        chosenHandler(data, function(statusCode, resPayload){
+            //Use the status code called back by the handler, or default to 200
+            statusCode = typeof(statusCode) == 'number' ? statusCode : 200;
+            //Use the payload called back by the handler, or default to an empty object
+            resPayload = typeof(resPayload) == 'object' ? resPayload : {};
+            //Convert the payload to a string 
+            var resPayloadString = JSON.stringify(resPayload);
+
+            //Return the response
+            res.writeHead(statusCode);
+            res.end(resPayloadString);
+
+            //Log the request path
+            console.log('Returning this response: ', statusCode, resPayloadString);
+        });
+
+        //Send the response
+        //res.end('Hello World\n');
+
+        //Log the request path 
+        //console.log('Request is received on path: '+trimmedPath+'\nwith method '+method+ '\nand with these query parameters ',queryStringObject);
+        //console.log('Request received with these headers ', headers);
+        //console.log('Request received with this payload:\n', buffer);
+    });
 });
 
 
@@ -41,3 +84,22 @@ var server = http.createServer(function(req,res){
 server.listen(3000,function(){
     console.log("The server is listening to port 3000 now");
 });
+
+//Define the handlers
+var handlers = {};
+
+//Sample handler
+handlers.sample = function(data, callback){
+    //Callback an http status code, and a payload
+    callback(406,{'name' : 'sample handler'});
+};
+
+//Not found handler
+handlers.notFound = function(data, callback){
+    callback(404);
+};
+
+//Defining a request router
+var router = {
+    'sample' : handlers.sample
+};
