@@ -14,7 +14,13 @@ var _data = require('./lib/data');
 
 //TESTING
 // @TODO delete this
-_data.create('test', 'newFile', {'foo' : 'bar'}, function(err){
+// _data.create('test', 'newFile', {'foo' : 'bar'}, function(err){
+//     console.log('this was the error',err);
+// });
+// _data.read('test', 'newFile', function(err, data){
+//     console.log('this was the error',err, 'and this was the data', data);
+// });
+_data.update('test', 'newFile',{'fizrz' : 'buzrz'}, function(err){
     console.log('this was the error',err);
 });
 
