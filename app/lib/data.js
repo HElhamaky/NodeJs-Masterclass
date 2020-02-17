@@ -82,9 +82,21 @@ lib.update = function(dir, file, data, callback){
         }else{
             callback('Could not open the file for updating, it may not exist yet');
         }
-    })
-}
+    });
+};
 
+
+//Delete a file
+lib.delete = function(dir, file, callback){
+    //Unlink the file
+    fs.unlink(lib.baseDir+dir+'/'+file+'.json', function(err){
+        if(!err){
+            callback(false);
+        }else{
+            callback('Error deleting file')
+        }
+    });
+}
 
 
 //Export the module
