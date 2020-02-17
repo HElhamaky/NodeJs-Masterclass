@@ -10,7 +10,9 @@ var url = require('url');
 var StringDecoder = require('string_decoder').StringDecoder;
 var config = require('./config');
 var fs = require('fs');
-var _data = require('./lib/data');
+var handlers = require('./lib/handlers');
+
+//var _data = require('./lib/data');
 
 //TESTING
 // @TODO delete this
@@ -20,9 +22,9 @@ var _data = require('./lib/data');
 // _data.read('test', 'newFile', function(err, data){
 //     console.log('this was the error',err, 'and this was the data', data);
 // });
-_data.delete('test', 'newFile', function(err){
-    console.log('this was the error',err);
-});
+// _data.delete('test', 'newFile', function(err){
+//     console.log('this was the error',err);
+// });
 
 
 
@@ -124,21 +126,8 @@ var unifiedServer = function(req, res){
 }
 
 
-
-//Define the handlers
-var handlers = {};
-
-//ping Handler
-handlers.ping = function(data, callback){
-    callback(200);
-}
-
-//Not found handler
-handlers.notFound = function(data, callback){
-    callback(404);
-};
-
 //Defining a request router
 var router = {
     'ping' : handlers.ping
+    'users' : handlers.users
 };
