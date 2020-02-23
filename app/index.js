@@ -8,9 +8,10 @@ var http = require ('http');
 var https = require('https');
 var url = require('url');
 var StringDecoder = require('string_decoder').StringDecoder;
-var config = require('./config');
+var config = require('./lib/config');
 var fs = require('fs');
 var handlers = require('./lib/handlers');
+var helpers = require('./lib/helpers');
 
 //var _data = require('./lib/data');
 
@@ -94,7 +95,7 @@ var unifiedServer = function(req, res){
              'queryStringObject' : queryStringObject,
              'method' : method,
              'headers' : headers,
-             'reqPayload' : buffer
+             'reqPayload' : helpers.parseJsonToObject(buffer)
          };
  
          //Route the request to the chosen handler
@@ -128,6 +129,6 @@ var unifiedServer = function(req, res){
 
 //Defining a request router
 var router = {
-    'ping' : handlers.ping
+    'ping' : handlers.ping,
     'users' : handlers.users
 };
