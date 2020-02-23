@@ -11,11 +11,14 @@ var handlers = {};
 
 //Users
 handlers.users = function(data,callback){
-    var acceptableMethods = ['post', 'get', 'put', 'delete'];
-    if(acceptableMethods.indexOf(data.method) > -1){
+    var acceptableMethods = ['POST', 'get', 'put', 'delete'];
+    if(acceptableMethods.indexOf(data.method)>-1){
+        //console.log(data);
         handlers._users[data.method](data,callback);
+        
     }else{
-        callback(405); //Method not allowed status code
+        //Method not allowed status code
+        callback(405, {'Error':'Not allowed method'});
     }
 };
 
@@ -25,18 +28,20 @@ handlers._users = {};
 //Users - post
 //Required data: firstName, lastName, phone, password, tosAgreement
 //Optional data: none 
-handlers._users.post = function(data, callback){
+handlers._users.POST = function(data,callback){
     //Check that all required fields are filled out
     //Check if the user sent the payload in the structure we required
-    var firstName = typeof(data.payload.firstName) == 'string' && data.payload.firstName.trim().length > 0 ? data.payload.firstName.trim(): false;
+    
+    
+    var firstName = typeof(data.reqPayload.firstName) == 'string' && data.reqPayload.firstName.trim().length > 0 ? data.reqPayload.firstName.trim() : false;
 
-    var lastName = typeof(data.payload.lastName) == 'string' && data.payload.lastName.trim().length > 0 ? data.payload.lastName.trim(): false;
+    var lastName = typeof(data.reqPayload.lastName) == 'string' && data.reqPayload.lastName.trim().length > 0 ? data.reqPayload.lastName.trim() : false;
 
-    var phone = typeof(data.payload.phone) == 'string' && data.payload.phone.trim().length == 10 ? data.payload.phone.trim(): false;
+    var phone = typeof(data.reqPayload.phone) == 'string' && data.reqPayload.phone.trim().length == 10 ? data.reqPayload.phone.trim() : false;
 
-    var password = typeof(data.payload.password) == 'string' && data.payload.password.trim().length > 0 ? data.payload.password.trim(): false;
+    var password = typeof(data.reqPayload.password) == 'string' && data.reqPayload.password.trim().length > 0 ? data.reqPayload.password.trim() : false;
 
-    var tosAgreement = typeof(data.payload.tosAgreement) == 'boolean' && data.payload.tosAgreement == true ? true : false;
+    var tosAgreement = typeof(data.reqPayload.tosAgreement) == 'boolean' && data.reqPayload.tosAgreement == true ? true : false;
 
     if(firstName && lastName && phone && tosAgreement){
         //Make sure that the user doesn't already exist
@@ -75,7 +80,7 @@ handlers._users.post = function(data, callback){
         });
     }else{
         callback(400, {'Error' : 'Missing required fields'});
-    }
+    };
 };
 //Users - get
 handlers._users.get = function(data, callback){
