@@ -47,6 +47,7 @@ var httpsServerOptions = {
     'cert': fs.readFileSync('./https/certificate.pem')
 };
 var httpsServer = https.createServer(httpsServerOptions, function(req,res){
+    
     unifiedServer(req, res);   
 });
 //Start the server
@@ -114,6 +115,7 @@ var unifiedServer = function(req, res){
  
              //Log the request path
              console.log('Returning this response: ', statusCode, resPayloadString);
+             
          });
  
          //Send the response
