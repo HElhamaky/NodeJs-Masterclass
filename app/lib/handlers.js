@@ -92,8 +92,9 @@ handlers._users.GET = function(data, callback){
     var phone = typeof(data.queryStringObject.phone) == 'string' && data.queryStringObject.phone.trim().length == 10 ? data.queryStringObject.phone.trim() : false;
     if(phone){
         //Get the token from the handlers 
-        var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+        var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
         //Verify that the given token is valid for the phone number 
+        console.log(token);
         handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
             if(tokenIsValid){
                 //Lookup the user
@@ -120,7 +121,7 @@ handlers._users.GET = function(data, callback){
 //Users - put
 //Required data : phone
 //Optional data : firstName, lastName, Password(at least one must be specified)
-//@TODO Only let an authenticated user update their own object, don't let them update any one elses'
+
 handlers._users.PUT = function(data, callback){
     //Check for the required field
     var phone = typeof(data.reqPayload.phone) == 'string' && data.reqPayload.phone.trim().length == 10 ? data.reqPayload.phone.trim() : false;
@@ -136,7 +137,7 @@ handlers._users.PUT = function(data, callback){
     if(phone){
         if(firstName || lastName || password){
             //Get the token from the handlers 
-            var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+            var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
             //Verify that the given token is valid for the phone number 
             handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
                 if(tokenIsValid){
@@ -191,8 +192,14 @@ handlers._users.DELETE = function(data, callback){
     //Check that the provided phone number is valid 
     var phone = typeof(data.queryStringObject.phone) == 'string' && data.queryStringObject.phone.trim().length == 10 ? data.queryStringObject.phone.trim() : false;
     if(phone){
-        //Look up the user
-        _data.read('users', phone, function(err,data){
+
+         //Get the token from the handlers 
+         var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
+         //Verify that the given token is valid for the phone number 
+         handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
+             if(tokenIsValid){
+            //Look up the user
+            _data.read('users', phone, function(err,data){
             if(!err && data){
                 _data.delete('users', phone, function(err){
                     if(!err){
@@ -206,6 +213,10 @@ handlers._users.DELETE = function(data, callback){
                callback(400, {'Error': 'Could not find the specified user'});
             }
         });
+             }else{
+                callback(403, {'Error': 'Missing required token in header, or token is invalid'});
+             }
+            });
     }else{
         callback(400, {'Error':'Missing required field'});
     }
