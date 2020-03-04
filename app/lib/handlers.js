@@ -391,6 +391,47 @@ handlers._tokens.verifyToken = function(id, phone, callback){
     })
 }
 
+//Checks
+handlers.checks = function(data,callback){
+    var acceptableMethods = ['POST', 'GET', 'PUT', 'DELETE'];
+    if(acceptableMethods.indexOf(data.method)>-1){
+        //console.log(data);
+        handlers._checks[data.method](data,callback);
+        
+    }else{
+        //Method not allowed status code
+        callback(405, {'Error':'Not allowed method'});
+    }
+};
+
+//Container for all the checks methods
+handlers._checks = {};
+
+//Checks - POST
+//Required data : protocol, url, method, successCodes, timeoutSeconds
+//Optional data : none
+handlers._checks.POST = function(data, callback){
+    //Validate Inputs
+    var protocol = typeof(data.reqPayload.protocol) == 'string' && ['https', 'http'].indexOf(data.reqPayload.protocol) > -1  ? data.reqPayload.protocol : false;
+
+    var url = typeof(data.reqPayload.url) == 'string' && data.reqPayload.url.trim().length > 0 ? data.reqPayload.url.trim() : false;
+
+    var method = typeof(data.reqPayload.method) == 'string' && ['POST', 'GET', 'PUT', 'DELETE'].indexOf(data.reqPayload.method) > -1  ? data.reqPayload.method : false;
+
+    var successCodes = typeof(data.reqPayload.successCodes) == 'object' && data.reqPayload.successCodes instanceof Array && data.reqPayload.successCodes.length > 0 ? data.reqPayload.successCodes : false;
+
+    var timeoutSeconds = typeof(data.reqPayload.timeoutSeconds) == 'number' && data.reqPayload.timeoutSeconds % 1 === 0 && data.reqPayload.timeoutSeconds >= 1 && data.reqPayload.timeoutSeconds <= 5 ? data.reqPayload.timeoutSeconds : false;
+
+    if(protocol && url && method && successCodes && timeoutSeconds){
+        //Get the token from headers
+        var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+
+        //Lookup the user by reading the token
+        _data.read('tokens', token, function(err,tokenData){
+            
+        })
+    }
+
 
 //ping Handler
 handlers.ping = function(data, callback){
