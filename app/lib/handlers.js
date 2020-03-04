@@ -4,7 +4,8 @@
 
 //Dependencies
 var _data = require('./data');
-var helpers = require('./helpers')
+var helpers = require('./helpers');
+var config = require('./config');
 
 //Define the handlers
 var handlers = {};
@@ -92,7 +93,7 @@ handlers._users.GET = function(data, callback){
     var phone = typeof(data.queryStringObject.phone) == 'string' && data.queryStringObject.phone.trim().length == 10 ? data.queryStringObject.phone.trim() : false;
     if(phone){
         //Get the token from the handlers 
-        var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
+        var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
         //Verify that the given token is valid for the phone number 
         console.log(token);
         handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
@@ -137,7 +138,7 @@ handlers._users.PUT = function(data, callback){
     if(phone){
         if(firstName || lastName || password){
             //Get the token from the handlers 
-            var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
+            var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
             //Verify that the given token is valid for the phone number 
             handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
                 if(tokenIsValid){
@@ -194,7 +195,7 @@ handlers._users.DELETE = function(data, callback){
     if(phone){
 
          //Get the token from the handlers 
-         var token = typeof(data.queryStringObject.token) == 'string' ? data.queryStringObject.token : false;
+         var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
          //Verify that the given token is valid for the phone number 
          handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
              if(tokenIsValid){
@@ -428,9 +429,62 @@ handlers._checks.POST = function(data, callback){
 
         //Lookup the user by reading the token
         _data.read('tokens', token, function(err,tokenData){
-            
+            if(!err && tokenData){
+                var userPhone = tokenData.phone;
+
+                //Lookup the user data
+                _data.read('users', userPhone, function(err,userData){
+                    if(!err && userData){
+                        var userChecks = typeof(userData.checks) == 'object' && userData.checks instanceof Array ? userData.checks : [];
+                        //Verify that the user has less than the number of max-checks-per-user 
+                        if(userChecks.length < config.maxChecks){
+                             //Create a random id for checks
+                             var checkId = helpers.createRandomString(20);
+
+                             //Create the check object, and include the user's phone
+                             var checkObject = {
+                                 'checkId' : checkId,
+                                 'userPhone' : userPhone,
+                                  'protocol' : protocol,
+                                  'url' : url,
+                                  'method' : method, 
+                                  'successCodes' : successCodes,
+                                  'timeoutSeconds' : timeoutSeconds
+                             };
+
+                             //Save the object
+                             _data.create('checks', checkId, checkObject, function(err){
+                                 if(!err){
+                                     //Add the checkId to the user's object
+                                     userData.checks = userChecks;
+                                     userData.checks.push(checkId);
+
+                                     //Save the new user data 
+                                     _data.update('users', userPhone, userData, function(err){
+                                         if(!err){
+                                             //Return the data about the new check
+                                             callback(200, checkObject);
+                                         }else{
+                                             callback(500,{'Error':'Could not update the user with the new check'});
+                                         }
+                                     })
+                                 }else{
+                                     callback(500,{'Error' : 'Could not create the new check'});
+                                 }
+                             });
+                        } else {
+                            callback(400, {'Error': 'The user already has the maximum number of checks ('+config.maxChecks+')'});
+                        }
+                    } else {
+                        callback(403);
+                    }
+                });
+            } else {
+                callback(403);
+            }
         })
     }
+}
 
 
 //ping Handler
