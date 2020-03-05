@@ -66,7 +66,7 @@ handlers._users.POST = function(data,callback){
                         if(!err){
                             callback(200, {'Success' : 'User created successfully'});
                         }else{
-                            console.log(err);
+                            //console.log(err);
                             callback(500,{'Error':'Could not create the new user'})
                         }
                     });
@@ -95,7 +95,7 @@ handlers._users.GET = function(data, callback){
         //Get the token from the handlers 
         var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
         //Verify that the given token is valid for the phone number 
-        console.log(token);
+        //console.log(token);
         handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
             if(tokenIsValid){
                 //Lookup the user
@@ -160,7 +160,7 @@ handlers._users.PUT = function(data, callback){
                         if(!err){
                             callback(200, {'Success':'User object updated'});
                         }else{
-                            console.log(err);
+                            //console.log(err);
                             callback(500, {'Error':'Could not update the user'})
                         }
                     })
@@ -294,7 +294,7 @@ handlers._tokens.POST = function(data, callback){
 handlers._tokens.GET = function(data, callback){
     //Check that the provided id is valid 
     var id = typeof(data.queryStringObject.id) == 'string' && data.queryStringObject.id.trim().length == 20 ? data.queryStringObject.id.trim() : false;
-    console.log(data.queryStringObject.id);
+    //console.log(data.queryStringObject.id);
     if(id){
         _data.read('tokens',id,function(err,tokenData){
             if(!err && tokenData){
@@ -316,7 +316,7 @@ handlers._tokens.PUT = function(data, callback){
     
     var extend = data.reqPayload.extend.toUpperCase() === 'TRUE' ? true : false;
 
-    console.log(extend);
+    //console.log(extend);
 
     if(id && extend){
         //Lookup the token 
@@ -422,12 +422,12 @@ handlers._checks.POST = function(data, callback){
 
     var timeoutSeconds = typeof(data.reqPayload.timeoutSeconds) == 'number' && data.reqPayload.timeoutSeconds % 1 === 0 && data.reqPayload.timeoutSeconds >= 1 && data.reqPayload.timeoutSeconds <= 5 ? data.reqPayload.timeoutSeconds : false;
 
-    console.log(protocol, url, method, successCodes, timeoutSeconds);
+    //console.log(protocol, url, method, successCodes, timeoutSeconds);
     if(protocol && url && method && successCodes && timeoutSeconds){
         //Get the token from the headers 
         var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
 
-        console.log(token);
+        //console.log(token);
         //Lookup the user by reading the token
         _data.read('tokens', token, function(err, tokenData){
             if(!err && tokenData){
@@ -488,7 +488,41 @@ handlers._checks.POST = function(data, callback){
     } else {
         callback(400, {'Error' : 'Missing required inputs, or inputs are invalid'});
     }
-}
+};
+
+//Checks - get
+// Required data: id
+//Optional data: none
+handlers._checks.GET = function(data, callback){
+    //Check that the provided phone number is valid 
+    var id = typeof(data.queryStringObject.id) == 'string' && data.queryStringObject.id.trim().length == 20 ? data.queryStringObject.id.trim() : false;
+    if(id){
+
+        //Lookup the check
+        _data.read('checks', id, function(err, checkData){
+            if(!err && checkData){
+                //Get the token from the handlers 
+                var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+                //Verify that the given token is valid and belongs for the user who created the check
+                handlers._tokens.verifyToken(token,checkData.userPhone, function(tokenIsValid){
+                    
+                    if(tokenIsValid){
+                       //Return the check data
+                       callback(200, checkData);
+                    }else{
+                        callback(403, {'Error': 'Missing required token in header, or token is invalid'});
+                    }
+                });
+
+            }else{
+                callback(404, {'Error' : 'Check Not found'});
+            }
+        });
+    }else{
+        callback(400, {'Error':'Missing required field'});
+    }
+};
+
 
 
 //ping Handler
