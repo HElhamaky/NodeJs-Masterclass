@@ -398,7 +398,6 @@ handlers.checks = function(data,callback){
     if(acceptableMethods.indexOf(data.method)>-1){
         //console.log(data);
         handlers._checks[data.method](data,callback);
-        
     }else{
         //Method not allowed status code
         callback(405, {'Error':'Not allowed method'});
@@ -417,18 +416,20 @@ handlers._checks.POST = function(data, callback){
 
     var url = typeof(data.reqPayload.url) == 'string' && data.reqPayload.url.trim().length > 0 ? data.reqPayload.url.trim() : false;
 
-    var method = typeof(data.reqPayload.method) == 'string' && ['POST', 'GET', 'PUT', 'DELETE'].indexOf(data.reqPayload.method) > -1  ? data.reqPayload.method : false;
+    var method = typeof(data.reqPayload.method) == 'string' && ['post', 'get', 'put', 'delete'].indexOf(data.reqPayload.method) > -1  ? data.reqPayload.method : false;
 
     var successCodes = typeof(data.reqPayload.successCodes) == 'object' && data.reqPayload.successCodes instanceof Array && data.reqPayload.successCodes.length > 0 ? data.reqPayload.successCodes : false;
 
     var timeoutSeconds = typeof(data.reqPayload.timeoutSeconds) == 'number' && data.reqPayload.timeoutSeconds % 1 === 0 && data.reqPayload.timeoutSeconds >= 1 && data.reqPayload.timeoutSeconds <= 5 ? data.reqPayload.timeoutSeconds : false;
 
+    console.log(protocol, url, method, successCodes, timeoutSeconds);
     if(protocol && url && method && successCodes && timeoutSeconds){
-        //Get the token from headers
+        //Get the token from the headers 
         var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
 
+        console.log(token);
         //Lookup the user by reading the token
-        _data.read('tokens', token, function(err,tokenData){
+        _data.read('tokens', token, function(err, tokenData){
             if(!err && tokenData){
                 var userPhone = tokenData.phone;
 
@@ -436,53 +437,56 @@ handlers._checks.POST = function(data, callback){
                 _data.read('users', userPhone, function(err,userData){
                     if(!err && userData){
                         var userChecks = typeof(userData.checks) == 'object' && userData.checks instanceof Array ? userData.checks : [];
-                        //Verify that the user has less than the number of max-checks-per-user 
+                        //Verify that the user has less than the number of max-checks-per-user
                         if(userChecks.length < config.maxChecks){
                              //Create a random id for checks
-                             var checkId = helpers.createRandomString(20);
+                            var checkId = helpers.createRandomString(20);
 
-                             //Create the check object, and include the user's phone
-                             var checkObject = {
-                                 'checkId' : checkId,
-                                 'userPhone' : userPhone,
-                                  'protocol' : protocol,
-                                  'url' : url,
-                                  'method' : method, 
-                                  'successCodes' : successCodes,
-                                  'timeoutSeconds' : timeoutSeconds
-                             };
+                            //Create the check object, and include the user's phone
+                            var checkObject = {
+                                'id' : checkId,
+                                'userPhone' : userPhone,
+                                'protocol' : protocol,
+                                'url' : url,
+                                'method' : method, 
+                                'successCodes' : successCodes,
+                                'timeoutSeconds' : timeoutSeconds
+                            };
 
-                             //Save the object
-                             _data.create('checks', checkId, checkObject, function(err){
-                                 if(!err){
-                                     //Add the checkId to the user's object
-                                     userData.checks = userChecks;
-                                     userData.checks.push(checkId);
+                            //Save the object
+                            _data.create('checks', checkId, checkObject, function(err){
+                                if(!err){
+                                    //Add the checkId to the user's object
+                                    userData.checks = userChecks;
+                                    userData.checks.push(checkId);
 
-                                     //Save the new user data 
-                                     _data.update('users', userPhone, userData, function(err){
-                                         if(!err){
-                                             //Return the data about the new check
-                                             callback(200, checkObject);
-                                         }else{
-                                             callback(500,{'Error':'Could not update the user with the new check'});
-                                         }
-                                     })
-                                 }else{
-                                     callback(500,{'Error' : 'Could not create the new check'});
-                                 }
-                             });
+                                    //Save the new user data 
+                                    _data.update('users', userPhone, userData, function(err){
+                                        if(!err){
+                                            //Return the data about the new check
+                                            callback(200, checkObject);
+                                        }else{
+                                            callback(500,{'Error':'Could not update the user with the new check'});
+                                        }
+                                    })
+                                }else{
+                                    callback(500, {'Error' : 'Could not create the new check'})
+                                }
+                            });
                         } else {
                             callback(400, {'Error': 'The user already has the maximum number of checks ('+config.maxChecks+')'});
                         }
                     } else {
-                        callback(403);
+                        callback(403, {'Error' : 'Can not read User Data'});
                     }
                 });
-            } else {
-                callback(403);
+
+            }else{
+                callback(403, {'Error' : 'Can not read user\'s token'});
             }
         })
+    } else {
+        callback(400, {'Error' : 'Missing required inputs, or inputs are invalid'});
     }
 }
 
