@@ -188,7 +188,6 @@ handlers._users.PUT = function(data, callback){
 //Users - delete
 //Required field : phone 
 //@TODO Only let an authenticated user delete their object. Don't let them delete anyone
-//@TODO Cleanup (delete) any other data files associated with user 
 handlers._users.DELETE = function(data, callback){
     //Check that the provided phone number is valid 
     var phone = typeof(data.queryStringObject.phone) == 'string' && data.queryStringObject.phone.trim().length == 10 ? data.queryStringObject.phone.trim() : false;
@@ -200,11 +199,36 @@ handlers._users.DELETE = function(data, callback){
          handlers._tokens.verifyToken(token, phone, function(tokenIsValid){
              if(tokenIsValid){
             //Look up the user
-            _data.read('users', phone, function(err,data){
-            if(!err && data){
+            _data.read('users', phone, function(err,userData){
+            if(!err && userData){
                 _data.delete('users', phone, function(err){
                     if(!err){
-                        callback(200, {'Success' : 'User Deleted Successfully'});
+                        //Delete each of the checks associated with the user 123
+                        var userChecks = typeof(userData.checks) == 'object' && userData.checks instanceof Array ? userData.checks : [];
+                        var checksToDelete = userChecks.length;
+                        if(checksToDelete > 0){
+                            var checksDeleted = 0;
+                            var deletionErrors = false;
+                            //Loop through the checks 
+                            userChecks.forEach(function(checkId){
+                                //Delete the check
+                                _data.delete('checks', checkId, function(err){
+                                    if(err){
+                                        deletionErrors = true;
+                                    }
+                                    checksDeleted++;
+                                    if(checksDeleted == checksToDelete){
+                                        if(!deletionErrors){
+                                            callback(200);
+                                        }else{
+                                            callback(500, {'Error': 'Errors encountered while attempting to delete all of the user\'s checks. All checks may not have been deleted from the system successfully'})
+                                        }
+                                    }
+                                });
+                            })
+                        }else{
+                            callback(200);
+                        }
                     }else{
                         callback(500, {'Error' : 'Could not delete the specified user'});
                     }
@@ -522,6 +546,159 @@ handlers._checks.GET = function(data, callback){
         callback(400, {'Error':'Missing required field'});
     }
 };
+
+//Checks - put
+//Required data : id
+//Optional data : protocol, url, method, successCodes, timeoutSeconds(one must be send)
+handlers._checks.PUT = function(data, callback){
+    //Check for the required field
+    var id = typeof(data.reqPayload.id) == 'string' && data.reqPayload.id.trim().length == 20 ? data.reqPayload.id.trim() : false;
+
+    //Check for the optional fields
+    var protocol = typeof(data.reqPayload.protocol) == 'string' && ['https', 'http'].indexOf(data.reqPayload.protocol) > -1  ? data.reqPayload.protocol : false;
+
+    var url = typeof(data.reqPayload.url) == 'string' && data.reqPayload.url.trim().length > 0 ? data.reqPayload.url.trim() : false;
+
+    var method = typeof(data.reqPayload.method) == 'string' && ['post', 'get', 'put', 'delete'].indexOf(data.reqPayload.method) > -1  ? data.reqPayload.method : false;
+
+    var successCodes = typeof(data.reqPayload.successCodes) == 'object' && data.reqPayload.successCodes instanceof Array && data.reqPayload.successCodes.length > 0 ? data.reqPayload.successCodes : false;
+
+    var timeoutSeconds = typeof(data.reqPayload.timeoutSeconds) == 'number' && data.reqPayload.timeoutSeconds % 1 === 0 && data.reqPayload.timeoutSeconds >= 1 && data.reqPayload.timeoutSeconds <= 5 ? data.reqPayload.timeoutSeconds : false;
+
+    if(id){
+        if(protocol || url || method || successCodes || timeoutSeconds){
+            //Lookup the check
+            _data.read('checks', id, function(err, checkData){
+                if(!err && checkData){
+                    //Get the token from the handlers 
+                var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+                //Verify that the given token is valid and belongs for the user who created the check
+                handlers._tokens.verifyToken(token,checkData.userPhone, function(tokenIsValid){
+                    if(tokenIsValid){
+                        //Update the check where necessary
+                        if(protocol){
+                            checkData.protocol = protocol;
+                        }
+                        if(url){
+                            checkData.url = url;
+                        }
+                        if(method){
+                            checkData.method= method;
+                        }
+                        if(successCodes){
+                            checkData.successCodes = successCodes;
+                        }
+                        if(timeoutSeconds){
+                            checkData.timeoutSeconds = timeoutSeconds;
+                        }
+
+                        //Store the new updates 
+                        _data.update('checks', id, checkData,function(err){
+                            if(!err){
+                                callback(200, {'Success': 'Check fields updated successfully'});
+                            }else{
+                                callback(500, {'Error' : 'Could not update the check'});
+                            }
+                        });
+                    }else{
+                        callback(403,{'Error': 'Missing required token in header, or token is invalid'});
+                    }
+                });
+                }else{
+                    callback(400, {'Error': 'Check ID did not exist'})
+                }
+            });
+        }else{
+            callback(400,{'Error' : 'Missing fields to update'});
+        }
+    }else{
+        callback(400,{'Error':'Missing required fields'});
+    }
+}
+
+//Check - delete
+//Required data : id 
+//Optional data : none
+
+handlers._checks.DELETE = function(data, callback){
+    //Check that the provided phone number is valid 
+    var id = typeof(data.queryStringObject.id) == 'string' && data.queryStringObject.id.trim().length == 20 ? data.queryStringObject.id.trim() : false;
+    if(id){
+
+        //Lookup the check
+        _data.read('checks', id, function(err,checkData){
+            if(!err && checkData){
+                //Get the token from the handlers 
+                var token = typeof(data.headers.token) == 'string' ? data.headers.token : false;
+                //Verify that the given token is valid for the phone number 
+                handlers._tokens.verifyToken(token, checkData.userPhone, function(tokenIsValid){
+                    if(tokenIsValid){
+
+                        //Delete the check data 
+                        _data.delete('checks', id, function(err){
+                            if(!err){
+                                //Look up the user
+                                _data.read('users', checkData.userPhone, function(err,userData){
+                                    if(!err && userData){
+                                        var userChecks = typeof(userData.checks) == 'object' && userData.checks instanceof Array ? userData.checks : [];
+
+                                        //Remove the deleted check from their list of checks
+                                        var checkPosition = userChecks.indexOf(id);
+
+                                        if(checkPosition > -1){
+                                            userChecks.splice(checkPosition, 1);
+                                            //Re-save the user's data 
+                                            _data.update('users', checkData.userPhone,userData, function(err){
+                                                if(!err){
+                                                    callback(200, {'Success' : 'Check Deleted Successfully'});
+                                                }else{
+                                                    callback(500, {'Error' : 'Could not update the user'});
+                                                }
+                                            });
+                                        }else{
+                                            callback(500,{'Error': 'Could not find the check on the user\'s object, so could not remove it' })
+                                        }
+                                        
+                                    }else{ 
+                                        //Not found
+                                        callback(500, {'Error': 'Could not find the user who created the check, so could not remove the check from the list of checks on the user object'});
+                                    }
+                                    });
+                                
+                            }else{
+                                callback(500, {'Error' : 'Could not delete the check data'});
+                            }
+                        })
+                
+                    }else{
+                    callback(403, {'Error': 'Missing required token in header, or token is invalid'});
+                    }
+                });
+            }else{
+                callback(400, {'Error':'The specified check ID does not exist'})
+            }
+        })
+    }else{
+        callback(400, {'Error':'Missing required field'});
+    }
+};
+
+
+
+
+//Tokens
+handlers.tokens = function(data,callback){
+    var acceptableMethods = ['POST', 'GET', 'PUT', 'DELETE'];
+    if(acceptableMethods.indexOf(data.method)>-1){
+        //console.log(data);
+        handlers._tokens[data.method](data,callback);
+        
+    }else{
+        //Method not allowed status code
+        callback(405, {'Error':'Not allowed method'});
+    }
+};
+
 
 
 
